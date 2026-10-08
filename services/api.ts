@@ -22,6 +22,15 @@ export interface Film {
   durationMinutes: number;
 }
 
+export interface GalleryEvent {
+  id: number;
+  title: string;
+  description: string;
+  eventDate: string;
+  accessCode: string;
+  zipFileName?: string;
+}
+
 // --- Peticiones HTTP ---
 
 // HU-1.2: Obtener ítems del portfolio
@@ -43,4 +52,22 @@ export async function getFilmById(id: number): Promise<Film> {
   const res = await fetch(`${API_BASE_URL}/films/${id}`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Error al cargar la información del cortometraje');
   return res.json();
+}
+
+// 1. Consulta el evento por código de acceso privado (HU-2.1)
+export async function getGalleryByCode(code: string): Promise<GalleryEvent> {
+  const res = await fetch(`${API_BASE_URL}/gallery/${code}`, { 
+    cache: 'no-store' 
+  });
+  
+  if (!res.ok) {
+    throw new Error('Código no válido o el evento no existe.');
+  }
+  
+  return res.json();
+}
+
+// 2. Genera la URL para descargar el paquete .zip de fotos
+export function getDownloadUrlByCode(code: string): string {
+  return `${API_BASE_URL}/gallery/${code}/download`;
 }

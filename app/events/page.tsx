@@ -1,78 +1,98 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Image from 'next/image';
-import { getPortfolioItems, PortfolioItem } from '@/services/api';
+import { useState } from 'react';
+import { getGalleryByCode, getDownloadUrlByCode, GalleryEvent } from '@/services/api';
 
-export default function HomePage() {
-  const [items, setItems] = useState<PortfolioItem[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function EventsPage() {
+  const [accessCode, setAccessCode] = useState('');
+  const [event, setEvent] = useState<GalleryEvent | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    getPortfolioItems()
-      .then(setItems)
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accessCode.trim()) return;
+
+    setLoading(true);
+    setError(null);
+    setEvent(null);
+
+    try {
+      const data = await getGalleryByCode(accessCode.trim());
+      setEvent(data);
+    } catch (err: any) {
+      setError(err.message || 'Error al consultar el código');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <main className="min-h-screen bg-neutral-950 text-neutral-100">
-      {/* Sección Biografía */}
-      <section className="max-w-5xl mx-auto px-6 py-16 flex flex-col md:flex-row items-center gap-12">
-        <div className="w-48 h-48 md:w-64 md:h-64 rounded-full overflow-hidden relative border-2 border-neutral-700 flex-shrink-0">
-          <img
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80"
-            alt="Fotógrafo"
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div>
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">
-            Capturando Historias y Emociones
-          </h1>
-          <p className="text-neutral-400 leading-relaxed mb-4">
-            Hola, soy fotógrafo y realizador audiovisual. Mi trabajo se centra en capturar la esencia de cada momento, combinando técnica analógica y digital para crear piezas visuales únicas.
+    <main className="min-h-[85vh] bg-neutral-950 text-neutral-100 flex flex-col items-center justify-center p-6">
+      {!event ? (
+        /* Formulario para ingresar el Código de Acceso */
+        <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 p-8 rounded-2xl shadow-xl text-center">
+          <h1 className="text-3xl font-extrabold mb-2">Acceso a Eventos</h1>
+          <p className="text-sm text-neutral-400 mb-6">
+            Introduce el código privado proporcionado para ver tus fotografías.
           </p>
-          <p className="text-neutral-500 text-sm italic">
-            Especializado en retrato editorial, fotografía documental y producción cinematográfica.
-          </p>
+
+          <form onSubmit={handleSearch} className="flex flex-col gap-4">
+            <input
+              type="text"
+              placeholder="Ej. BODA-JUAN-2026"
+              value={accessCode}
+              onChange={(e) => setAccessCode(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg bg-neutral-800 border border-neutral-700 text-white focus:outline-none focus:border-white transition tracking-wide text-center uppercase"
+              required
+            />
+
+            {error && <p className="text-sm text-red-400">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-white text-neutral-900 font-bold py-3 rounded-lg hover:bg-neutral-200 transition disabled:opacity-50"
+            >
+              {loading ? 'Verificando...' : 'Acceder al Evento'}
+            </button>
+          </form>
         </div>
-      </section>
-
-      {/* Sección Galería Destacada */}
-      <section className="max-w-7xl mx-auto px-6 py-12">
-        <h2 className="text-2xl font-bold mb-8 border-b border-neutral-800 pb-3">
-          Portfolio Destacado
-        </h2>
-
-        {loading ? (
-          <p className="text-neutral-500 text-center py-12">Cargando galería...</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {items.map((item) => (
-              <div key={item.id} className="group relative bg-neutral-900 rounded-lg overflow-hidden shadow-md">
-                {item.mediaType === 'IMAGE' ? (
-                  <img
-                    src={item.mediaUrl}
-                    alt={item.title}
-                    className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                ) : (
-                  <video
-                    src={item.mediaUrl}
-                    controls
-                    className="w-full h-64 object-cover"
-                  />
-                )}
-                <div className="p-4">
-                  <h3 className="font-semibold text-lg">{item.title}</h3>
-                  <p className="text-sm text-neutral-400 mt-1">{item.description}</p>
-                </div>
-              </div>
-            ))}
+      ) : (
+        /* Detalle del Evento Privado al ingresar el código correcto */
+        <div className="w-full max-w-2xl bg-neutral-900 border border-neutral-800 p-8 rounded-2xl shadow-xl">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">
+                Evento Privado
+              </span>
+              <h1 className="text-3xl font-extrabold mt-1">{event.title}</h1>
+            </div>
+            <button
+              onClick={() => setEvent(null)}
+              className="text-xs text-neutral-400 hover:text-white underline"
+            >
+              Cambiar código
+            </button>
           </div>
-        )}
-      </section>
+
+          <p className="text-xs text-neutral-400 mb-6">Fecha del evento: {event.eventDate}</p>
+          <p className="text-neutral-300 leading-relaxed mb-8">{event.description}</p>
+
+          <div className="border-t border-neutral-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <span className="text-sm text-neutral-400">
+              Estado: <strong className="text-green-400">Galería disponible</strong>
+            </span>
+
+            <a
+              href={getDownloadUrlByCode(event.accessCode)}
+              className="w-full sm:w-auto bg-neutral-100 hover:bg-white text-neutral-900 font-bold py-3 px-6 rounded-lg transition shadow text-center"
+            >
+              📦 Descargar Fotografías (.zip)
+            </a>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
