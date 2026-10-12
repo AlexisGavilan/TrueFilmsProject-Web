@@ -31,6 +31,22 @@ export interface GalleryEvent {
   zipFileName?: string;
 }
 
+export interface AdminEvent {
+  id: number;
+  title: string;
+  description?: string;
+  eventDate: string;
+  accessCode: string;
+  createdAt: string;
+}
+
+export interface CreateEventPayload {
+  title: string;
+  description?: string;
+  eventDate: string;
+  accessCode: string;
+}
+
 // --- Peticiones HTTP ---
 
 // HU-1.2: Obtener ítems del portfolio
@@ -70,4 +86,43 @@ export async function getGalleryByCode(code: string): Promise<GalleryEvent> {
 // 2. Genera la URL para descargar el paquete .zip de fotos
 export function getDownloadUrlByCode(code: string): string {
   return `${API_BASE_URL}/gallery/${code}/download`;
+}
+
+
+//HU-2.2: Obtener el listado de eventos para la vista admin
+// Obtener eventos para la vista admin
+export async function getAdminEvents(): Promise<AdminEvent[]> {
+  const res = await fetch(`${API_BASE_URL}/admin/events`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Error al obtener los eventos');
+  return res.json();
+}
+
+// Crear un nuevo evento
+export async function createAdminEvent(payload: CreateEventPayload): Promise<AdminEvent> {
+  const res = await fetch(`${API_BASE_URL}/admin/events`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Error al crear el evento');
+  return res.json();
+}
+
+// Actualizar código de acceso
+export async function updateEventAccessCode(id: number, newAccessCode: string): Promise<AdminEvent> {
+  const res = await fetch(`${API_BASE_URL}/admin/events/${id}/code`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ newAccessCode }),
+  });
+  if (!res.ok) throw new Error('Error al actualizar el código de acceso');
+  return res.json();
+}
+
+// Eliminar un evento
+export async function deleteAdminEvent(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/admin/events/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Error al eliminar el evento');
 }
