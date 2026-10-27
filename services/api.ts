@@ -47,6 +47,14 @@ export interface CreateEventPayload {
   accessCode: string;
 }
 
+export interface Photo {
+  id: number;
+  fileName: string;
+  thumbnailUrl: string;
+  originalUrl: string;
+  fileSize: number;
+}
+
 // --- Peticiones HTTP ---
 
 // HU-1.2: Obtener ítems del portfolio
@@ -82,6 +90,13 @@ export async function getGalleryByCode(code: string): Promise<GalleryEvent> {
   
   return res.json();
 }
+
+export async function getEventById(id: string | number): Promise<GalleryEvent> {
+  const res = await fetch(`${API_BASE_URL}/events/${id}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Evento no encontrado');
+  return res.json();
+}
+
 
 // 2. Genera la URL para descargar el paquete .zip de fotos
 export function getDownloadUrlByCode(code: string): string {
@@ -126,3 +141,19 @@ export async function deleteAdminEvent(id: number): Promise<void> {
   });
   if (!res.ok) throw new Error('Error al eliminar el evento');
 }
+
+//HU-3.1: Previsualizacion de Fotos
+
+//Obtener fotos de un evento específico
+export async function getEventPhotos(eventId: string | number): Promise<Photo[]> {
+  const res = await fetch(`${API_BASE_URL}/events/${eventId}/photos`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Error al cargar la galería del evento');
+  return res.json();
+}
+
+// Obtener la URL de la imagen
+export function getImageUrl(endpointPath: string): string {
+  return `${API_BASE_URL.replace('/api', '')}${endpointPath}`;
+}
+
+//
