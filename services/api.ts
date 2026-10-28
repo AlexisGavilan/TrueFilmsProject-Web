@@ -156,4 +156,17 @@ export function getImageUrl(endpointPath: string): string {
   return `${API_BASE_URL.replace('/api', '')}${endpointPath}`;
 }
 
-//
+//HU-3.2: Seleccion de Fotos
+// Enviar IDs seleccionados para descargar el ZIP personalizado
+export async function downloadSelectedPhotos(photoIds: number[]): Promise<Blob> {
+  const res = await fetch(`${API_BASE_URL}/events/photos/download-selection`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ photoIds }),
+  });
+
+  if (!res.ok) throw new Error('Error al generar el archivo ZIP con la selección');
+  return res.blob();
+}
