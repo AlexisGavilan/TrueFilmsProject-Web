@@ -159,7 +159,7 @@ export function getImageUrl(endpointPath: string): string {
 //HU-3.2: Seleccion de Fotos
 // Enviar IDs seleccionados para descargar el ZIP personalizado
 export async function downloadSelectedPhotos(photoIds: number[]): Promise<Blob> {
-  const res = await fetch(`${API_BASE_URL}/events/photos/download-selection`, {
+  const res = await fetch(`${API_BASE_URL}/photos/download-selection`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -168,5 +168,13 @@ export async function downloadSelectedPhotos(photoIds: number[]): Promise<Blob> 
   });
 
   if (!res.ok) throw new Error('Error al generar el archivo ZIP con la selección');
+  return res.blob();
+}
+
+// HU3.3: Descarga Personalizada
+// Descargar una foto individual en alta resolución
+export async function downloadSinglePhoto(photoId: number): Promise<Blob> {
+  const res = await fetch(`${API_BASE_URL}/photos/${photoId}/download`);
+  if (!res.ok) throw new Error('Error al descargar la fotografía');
   return res.blob();
 }

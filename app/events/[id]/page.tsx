@@ -85,13 +85,6 @@ function EventDetailContent() {
             <span className="text-sm text-neutral-400">
               Estado: <strong className="text-green-400">Galería disponible</strong> ({photos.length} fotos)
             </span>
-
-            <a
-              href={getDownloadUrlByCode(event.accessCode)}
-              className="w-full sm:w-auto bg-neutral-100 hover:bg-white text-neutral-900 font-bold py-3 px-6 rounded-lg transition shadow text-center"
-            >
-              📦 Descargar Fotografías (.zip)
-            </a>
           </div>
         </div>
 

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Photo, getImageUrl, downloadSelectedPhotos } from '@/services/api';
+import { Photo, getImageUrl, downloadSelectedPhotos, downloadSinglePhoto } from '@/services/api';
 
 interface PhotoGalleryProps {
   photos: Photo[];
@@ -47,6 +47,24 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
       alert(err.message || 'Error downloading selection');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  // Handle single photo download (HU-3.3)
+  const handleDownloadSingle = async (photo: Photo, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const blob = await downloadSinglePhoto(photo.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = photo.fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || 'Error al descargar la imagen');
     }
   };
 
@@ -101,7 +119,7 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
         })}
       </div>
 
-      {/* Barra Flotante de Acciones */}
+      {/* Barra Flotante de Acciones (Descarga por lotes ZIP) */}
       {selectedIds.length > 0 && (
         <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-neutral-900 border border-neutral-700 text-white px-6 py-3.5 rounded-full shadow-2xl flex items-center gap-6 z-50 animate-fade-in">
           <span className="text-sm font-medium text-neutral-300">
@@ -117,7 +135,7 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
         </div>
       )}
 
-      {/* Modal / Lightbox para Previsualización en Alta Calidad */}
+      {/* Modal / Lightbox para Previsualización y Descarga Individual (HU-3.3) */}
       {selectedPhoto && (
         <div
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
@@ -139,12 +157,20 @@ export default function PhotoGallery({ photos }: PhotoGalleryProps) {
             <img
               src={getImageUrl(selectedPhoto.originalUrl)}
               alt={selectedPhoto.fileName}
-              className="max-h-[80vh] w-auto object-contain rounded-lg shadow-2xl"
+              className="max-h-[75vh] w-auto object-contain rounded-lg shadow-2xl"
             />
 
-            {/* Info Pie de Foto */}
-            <div className="mt-3 text-slate-300 text-sm font-mono">
-              {selectedPhoto.fileName}
+            {/* Barra inferior del modal con el nombre y el nuevo botón de descarga individual (HU-3.3) */}
+            <div className="mt-4 flex items-center justify-between w-full px-4">
+              <span className="text-slate-300 text-sm font-mono">
+                {selectedPhoto.fileName}
+              </span>
+              <button
+                onClick={(e) => handleDownloadSingle(selectedPhoto, e)}
+                className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg shadow transition flex items-center gap-2 cursor-pointer"
+              >
+                📥 Descargar Original
+              </button>
             </div>
           </div>
         </div>
