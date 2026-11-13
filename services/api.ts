@@ -29,6 +29,7 @@ export interface GalleryEvent {
   eventDate: string;
   accessCode: string;
   zipFileName?: string;
+  expiresAt: string;
 }
 
 export interface AdminEvent {
@@ -38,6 +39,7 @@ export interface AdminEvent {
   eventDate: string;
   accessCode: string;
   createdAt: string;
+  expiresAt: string;
 }
 
 export interface CreateEventPayload {
@@ -45,6 +47,7 @@ export interface CreateEventPayload {
   description?: string;
   eventDate: string;
   accessCode: string;
+  expiresAt?: number;
 }
 
 export interface Photo {

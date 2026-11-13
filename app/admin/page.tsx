@@ -18,6 +18,7 @@ export default function AdminPage() {
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [accessCode, setAccessCode] = useState('');
+  const [expiresAt, setexpiresAt] = useState<number>(5); // 👈 NUEVO: 5 días por defecto
   const [creating, setCreating] = useState(false);
 
   // Estado para edición rápida de código
@@ -46,11 +47,19 @@ export default function AdminPage() {
 
     try {
       setCreating(true);
-      await createAdminEvent({ title, description, eventDate, accessCode });
+      // 👈 Enviamos también expiresAt al backend
+      await createAdminEvent({ 
+        title, 
+        description, 
+        eventDate, 
+        accessCode, 
+        expiresAt: Number(expiresAt) 
+      });
       setTitle('');
       setDescription('');
       setEventDate('');
       setAccessCode('');
+      setexpiresAt(5); // Reiniciar a 5 por defecto
       await loadEvents();
     } catch (err) {
       alert('Error al crear el evento');
@@ -121,6 +130,20 @@ export default function AdminPage() {
             />
           </div>
           <div>
+            {/* 👈 NUEVO: Selector de días de disponibilidad */}
+            <label className="block text-sm text-neutral-400 mb-1">Días de Disponibilidad (Caducidad) *</label>
+            <input
+              type="number"
+              min="1"
+              max="60"
+              value={expiresAt}
+              onChange={(e) => setexpiresAt(Number(e.target.value))}
+              className="w-full bg-neutral-800 border border-neutral-700 rounded p-2 text-white"
+              required
+            />
+            <p className="text-xs text-neutral-500 mt-1">Por defecto 5 días. Pasado este tiempo se borrará automáticamente.</p>
+          </div>
+          <div className="md:col-span-2">
             <label className="block text-sm text-neutral-400 mb-1">Descripción</label>
             <input
               type="text"
@@ -154,65 +177,74 @@ export default function AdminPage() {
               <thead>
                 <tr className="border-b border-neutral-800 text-neutral-400 text-sm">
                   <th className="p-3">Título</th>
-                  <th className="p-3">Fecha</th>
+                  <th className="p-3">Fecha del Evento</th>
+                  <th className="p-3">Caduca el</th> {/* 👈 NUEVA COLUMNA */}
                   <th className="p-3">Código de Acceso</th>
                   <th className="p-3 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {events.map((evt) => (
-                  <tr key={evt.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
-                    <td className="p-3 font-semibold">{evt.title}</td>
-                    <td className="p-3 text-neutral-400">{evt.eventDate}</td>
-                    <td className="p-3">
-                      {editingId === evt.id ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            defaultValue={evt.accessCode}
-                            onChange={(e) => setNewCodeInput(e.target.value)}
-                            className="bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-sm text-white w-32"
-                          />
+                {events.map((evt) => {
+                  // Formatear la fecha de expiración de forma legible
+                  const formattedExpiration = evt.expiresAt
+                    ? new Date(evt.expiresAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : 'N/A';
+
+                  return (
+                    <tr key={evt.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30">
+                      <td className="p-3 font-semibold">{evt.title}</td>
+                      <td className="p-3 text-neutral-400">{evt.eventDate}</td>
+                      <td className="p-3 text-amber-300 text-sm">{formattedExpiration}</td> {/* 👈 MOSTRAR CADUCIDAD */}
+                      <td className="p-3">
+                        {editingId === evt.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              defaultValue={evt.accessCode}
+                              onChange={(e) => setNewCodeInput(e.target.value)}
+                              className="bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-sm text-white w-32"
+                            />
+                            <button
+                              onClick={() => handleUpdateCode(evt.id)}
+                              className="bg-green-600 hover:bg-green-500 text-xs px-2 py-1 rounded font-bold"
+                            >
+                              Guardar
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              className="bg-neutral-700 hover:bg-neutral-600 text-xs px-2 py-1 rounded"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="font-mono bg-neutral-800 text-amber-400 px-2 py-1 rounded text-sm border border-neutral-700">
+                            {evt.accessCode}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3 text-right space-x-2">
+                        {editingId !== evt.id && (
                           <button
-                            onClick={() => handleUpdateCode(evt.id)}
-                            className="bg-green-600 hover:bg-green-500 text-xs px-2 py-1 rounded font-bold"
+                            onClick={() => {
+                              setEditingId(evt.id);
+                              setNewCodeInput(evt.accessCode);
+                            }}
+                            className="text-sm bg-neutral-800 hover:bg-neutral-700 text-neutral-200 px-3 py-1 rounded border border-neutral-700"
                           >
-                            Guardar
+                            Cambiar Código
                           </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="bg-neutral-700 hover:bg-neutral-600 text-xs px-2 py-1 rounded"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="font-mono bg-neutral-800 text-amber-400 px-2 py-1 rounded text-sm border border-neutral-700">
-                          {evt.accessCode}
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3 text-right space-x-2">
-                      {editingId !== evt.id && (
+                        )}
                         <button
-                          onClick={() => {
-                            setEditingId(evt.id);
-                            setNewCodeInput(evt.accessCode);
-                          }}
-                          className="text-sm bg-neutral-800 hover:bg-neutral-700 text-neutral-200 px-3 py-1 rounded border border-neutral-700"
+                          onClick={() => handleDelete(evt.id)}
+                          className="text-sm bg-red-950/80 hover:bg-red-900 text-red-300 px-3 py-1 rounded border border-red-800/50"
                         >
-                          Cambiar Código
+                          Eliminar
                         </button>
-                      )}
-                      <button
-                        onClick={() => handleDelete(evt.id)}
-                        className="text-sm bg-red-950/80 hover:bg-red-900 text-red-300 px-3 py-1 rounded border border-red-800/50"
-                      >
-                        Eliminar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
