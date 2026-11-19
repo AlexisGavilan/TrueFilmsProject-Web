@@ -58,6 +58,14 @@ export interface Photo {
   fileSize: number;
 }
 
+export interface DiskSpace {
+  totalSpaceBytes: number;
+  freeSpaceBytes: number;
+  usableSpaceBytes: number;
+  usedSpaceBytes: number;
+  usagePercentage: number;
+}
+
 // --- Peticiones HTTP ---
 
 // HU-1.2: Obtener ítems del portfolio
@@ -180,4 +188,35 @@ export async function downloadSinglePhoto(photoId: number): Promise<Blob> {
   const res = await fetch(`${API_BASE_URL}/photos/${photoId}/download`);
   if (!res.ok) throw new Error('Error al descargar la fotografía');
   return res.blob();
+}
+
+// HU-4.3
+// 1. Obtener espacio en disco del servidor (HU-4.3)
+export async function getDiskSpace(): Promise<DiskSpace> {
+  const res = await fetch(`${API_BASE_URL}/admin/events/disk-space`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Error al obtener el espacio en disco');
+  return res.json();
+}
+
+// 2. Subir el paquete ZIP para un evento específico (HU-4.3)
+export async function uploadEventZipFile(eventId: number, file: File): Promise<void> {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const res = await fetch(`${API_BASE_URL}/admin/events/${eventId}/file`, {
+    method: 'POST',
+    body: formData,
+  });
+  
+  if (!res.ok) throw new Error('Error al subir el paquete de fotos');
+}
+
+// 3. Utilidad para formatear bytes a GB/MB de forma legible
+export function formatBytes(bytes: number, decimals = 2): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
