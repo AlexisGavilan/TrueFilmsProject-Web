@@ -1,4 +1,6 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const BACKEND_ORIGIN = RAW_API_URL.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+const API_BASE_URL = `${BACKEND_ORIGIN}/api`;
 
 // --- Tipos de Datos (DTOs de Spring Boot) ---
 export type MediaType = 'IMAGE' | 'VIDEO';
@@ -28,6 +30,7 @@ export interface GalleryEvent {
   description: string;
   eventDate: string;
   accessCode: string;
+  bannerImageUrl?: string | null;
   zipFileName?: string;
   expiresAt: string;
 }
@@ -38,6 +41,7 @@ export interface AdminEvent {
   description?: string;
   eventDate: string;
   accessCode: string;
+  bannerImageUrl?: string | null;
   createdAt: string;
   expiresAt: string;
 }
@@ -91,14 +95,14 @@ export async function getFilmById(id: number): Promise<Film> {
 
 // 1. Consulta el evento por código de acceso privado (HU-2.1)
 export async function getGalleryByCode(code: string): Promise<GalleryEvent> {
-  const res = await fetch(`${API_BASE_URL}/gallery/${code}`, { 
-    cache: 'no-store' 
+  const res = await fetch(`${API_BASE_URL}/gallery/${code}`, {
+    cache: 'no-store',
   });
-  
+
   if (!res.ok) {
     throw new Error('Código no válido o el evento no existe.');
   }
-  
+
   return res.json();
 }
 
@@ -108,15 +112,12 @@ export async function getEventById(id: string | number): Promise<GalleryEvent> {
   return res.json();
 }
 
-
 // 2. Genera la URL para descargar el paquete .zip de fotos
 export function getDownloadUrlByCode(code: string): string {
   return `${API_BASE_URL}/gallery/${code}/download`;
 }
 
-
-//HU-2.2: Obtener el listado de eventos para la vista admin
-// Obtener eventos para la vista admin
+// HU-2.2: Obtener el listado de eventos para la vista admin
 export async function getAdminEvents(): Promise<AdminEvent[]> {
   const res = await fetch(`${API_BASE_URL}/admin/events`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Error al obtener los eventos');
@@ -153,22 +154,24 @@ export async function deleteAdminEvent(id: number): Promise<void> {
   if (!res.ok) throw new Error('Error al eliminar el evento');
 }
 
-//HU-3.1: Previsualizacion de Fotos
-
-//Obtener fotos de un evento específico
+// HU-3.1: Previsualizacion de Fotos
 export async function getEventPhotos(eventId: string | number): Promise<Photo[]> {
   const res = await fetch(`${API_BASE_URL}/events/${eventId}/photos`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Error al cargar la galería del evento');
   return res.json();
 }
 
-// Obtener la URL de la imagen
-export function getImageUrl(endpointPath: string): string {
-  return `${API_BASE_URL.replace('/api', '')}${endpointPath}`;
+// Obtener la URL completa de la imagen desde el backend
+export function getImageUrl(endpointPath?: string | null): string {
+  if (!endpointPath) return '';
+  if (endpointPath.startsWith('http://') || endpointPath.startsWith('https://')) {
+    return endpointPath;
+  }
+  const normalizedPath = endpointPath.startsWith('/') ? endpointPath : `/${endpointPath}`;
+  return `${BACKEND_ORIGIN}${normalizedPath}`;
 }
 
-//HU-3.2: Seleccion de Fotos
-// Enviar IDs seleccionados para descargar el ZIP personalizado
+// HU-3.2: Seleccion de Fotos
 export async function downloadSelectedPhotos(photoIds: number[]): Promise<Blob> {
   const res = await fetch(`${API_BASE_URL}/photos/download-selection`, {
     method: 'POST',
@@ -183,7 +186,6 @@ export async function downloadSelectedPhotos(photoIds: number[]): Promise<Blob> 
 }
 
 // HU3.3: Descarga Personalizada
-// Descargar una foto individual en alta resolución
 export async function downloadSinglePhoto(photoId: number): Promise<Blob> {
   const res = await fetch(`${API_BASE_URL}/photos/${photoId}/download`);
   if (!res.ok) throw new Error('Error al descargar la fotografía');
@@ -191,27 +193,24 @@ export async function downloadSinglePhoto(photoId: number): Promise<Blob> {
 }
 
 // HU-4.3
-// 1. Obtener espacio en disco del servidor (HU-4.3)
 export async function getDiskSpace(): Promise<DiskSpace> {
   const res = await fetch(`${API_BASE_URL}/admin/events/disk-space`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Error al obtener el espacio en disco');
   return res.json();
 }
 
-// 2. Subir el paquete ZIP para un evento específico (HU-4.3)
 export async function uploadEventZipFile(eventId: number, file: File): Promise<void> {
   const formData = new FormData();
   formData.append('file', file);
-  
+
   const res = await fetch(`${API_BASE_URL}/admin/events/${eventId}/file`, {
     method: 'POST',
     body: formData,
   });
-  
+
   if (!res.ok) throw new Error('Error al subir el paquete de fotos');
 }
 
-// 3. Utilidad para formatear bytes a GB/MB de forma legible
 export function formatBytes(bytes: number, decimals = 2): string {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
@@ -219,4 +218,31 @@ export function formatBytes(bytes: number, decimals = 2): string {
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+// Obtener listado público de eventos para las franjas de /events
+export async function getEvents(): Promise<GalleryEvent[]> {
+  const res = await fetch(`${API_BASE_URL}/events`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Error al cargar los eventos');
+  return res.json();
+}
+
+// Asignar o cambiar la imagen del banner de un evento ya creado
+export async function uploadEventBannerFile(
+  id: number | string,
+  file: File
+): Promise<AdminEvent> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_BASE_URL}/events/${id}/banner`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    throw new Error('Error al subir la imagen del banner');
+  }
+
+  return res.json();
 }

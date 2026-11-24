@@ -5,31 +5,39 @@ import {
   getAdminEvents,
   createAdminEvent,
   updateEventAccessCode,
+  uploadEventBannerFile,
   deleteAdminEvent,
   getDiskSpace,
   uploadEventZipFile,
+  getImageUrl,
   formatBytes,
   AdminEvent,
-  DiskSpace
+  DiskSpace,
 } from '@/services/api';
 
 export default function AdminPage() {
   const [events, setEvents] = useState<AdminEvent[]>([]);
   const [diskSpace, setDiskSpace] = useState<DiskSpace | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Estado para el formulario de nuevo evento
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [accessCode, setAccessCode] = useState('');
-  const [expiresAt, setexpiresAt] = useState<number>(5); // 5 días por defecto
-  const [selectedFile, setSelectedFile] = useState<File | null>(null); // 👈 NUEVO: Archivo ZIP
+  const [expiresAt, setexpiresAt] = useState<number>(5);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [creating, setCreating] = useState(false);
 
   // Estado para edición rápida de código
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newCodeInput, setNewCodeInput] = useState('');
+
+  // Estado para subir imagen del banner desde el equipo
+  const [editingBannerId, setEditingBannerId] = useState<number | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerVersion, setBannerVersion] = useState(0);
 
   useEffect(() => {
     loadData();
@@ -38,10 +46,9 @@ export default function AdminPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      // Cargamos tanto los eventos como el espacio en disco en paralelo
       const [eventsData, diskData] = await Promise.all([
         getAdminEvents(),
-        getDiskSpace().catch(() => null)
+        getDiskSpace().catch(() => null),
       ]);
       setEvents(eventsData);
       setDiskSpace(diskData);
@@ -58,22 +65,19 @@ export default function AdminPage() {
 
     try {
       setCreating(true);
-      
-      // 1. Crear el evento en el backend (igual que ya hacías)
-      const newEvent = await createAdminEvent({ 
-        title, 
-        description, 
-        eventDate, 
-        accessCode, 
-        expiresAt: Number(expiresAt) 
+
+      const newEvent = await createAdminEvent({
+        title,
+        description,
+        eventDate,
+        accessCode,
+        expiresAt: Number(expiresAt),
       });
 
-      // 2. Si se adjuntó un archivo ZIP, lo subimos usando el ID del evento recién creado
       if (selectedFile && newEvent && newEvent.id) {
         await uploadEventZipFile(newEvent.id, selectedFile);
       }
 
-      // 3. Limpiar formulario y recargar lista + espacio en disco
       setTitle('');
       setDescription('');
       setEventDate('');
@@ -91,12 +95,32 @@ export default function AdminPage() {
   const handleUpdateCode = async (id: number) => {
     if (!newCodeInput.trim()) return;
     try {
-      await updateEventAccessCode(id, newCodeInput);
+      await updateEventAccessCode(id, newCodeInput.trim());
       setEditingId(null);
       setNewCodeInput('');
       await loadData();
     } catch (err) {
       alert('Error al actualizar el código');
+    }
+  };
+
+  const handleUpdateBanner = async (id: number) => {
+    if (!bannerFile) {
+      alert('Selecciona una imagen desde tu equipo primero');
+      return;
+    }
+
+    try {
+      setUploadingBanner(true);
+      await uploadEventBannerFile(id, bannerFile);
+      setEditingBannerId(null);
+      setBannerFile(null);
+      setBannerVersion((prev) => prev + 1);
+      await loadData();
+    } catch (err) {
+      alert('Error al subir la imagen del banner');
+    } finally {
+      setUploadingBanner(false);
     }
   };
 
@@ -114,7 +138,6 @@ export default function AdminPage() {
     <main className="min-h-screen bg-neutral-950 text-neutral-100 p-8 max-w-6xl mx-auto space-y-8">
       <h1 className="text-3xl font-bold">Panel de Administración - Gestión del Fotógrafo</h1>
 
-      {/* 📊 NUEVO: Widget de Espacio en Disco (HU-4.3) */}
       {diskSpace && (
         <section className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg shadow-lg">
           <h2 className="text-xl font-bold mb-4">Espacio en Disco del Servidor</h2>
@@ -144,7 +167,6 @@ export default function AdminPage() {
         </section>
       )}
 
-      {/* Formulario de creación de evento (con el campo para adjuntar el .ZIP añadido) */}
       <section className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
         <h2 className="text-xl font-bold mb-4">Crear Nuevo Evento y Subir Paquete</h2>
         <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -201,7 +223,6 @@ export default function AdminPage() {
               className="w-full bg-neutral-800 border border-neutral-700 rounded p-2 text-white"
             />
           </div>
-          {/* 📂 NUEVO: Input para seleccionar el archivo ZIP del evento */}
           <div className="md:col-span-2">
             <label className="block text-sm text-neutral-400 mb-1">Paquete de Fotos (.ZIP)</label>
             <input
@@ -223,7 +244,6 @@ export default function AdminPage() {
         </form>
       </section>
 
-      {/* Tabla/Lista de Eventos y Códigos (Tu tabla original intacta) */}
       <section className="bg-neutral-900 border border-neutral-800 p-6 rounded-lg">
         <h2 className="text-xl font-bold mb-4">Eventos Activos y Códigos de Acceso</h2>
         {loading ? (
@@ -239,13 +259,18 @@ export default function AdminPage() {
                   <th className="p-3">Fecha del Evento</th>
                   <th className="p-3">Caduca el</th>
                   <th className="p-3">Código de Acceso</th>
+                  <th className="p-3">Banner</th>
                   <th className="p-3 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {events.map((evt: any) => {
                   const formattedExpiration = evt.expiresAt
-                    ? new Date(evt.expiresAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+                    ? new Date(evt.expiresAt).toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })
                     : 'N/A';
 
                   return (
@@ -258,17 +283,19 @@ export default function AdminPage() {
                           <div className="flex items-center gap-2">
                             <input
                               type="text"
-                              defaultValue={evt.accessCode}
+                              value={newCodeInput}
                               onChange={(e) => setNewCodeInput(e.target.value)}
                               className="bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-sm text-white w-32"
                             />
                             <button
+                              type="button"
                               onClick={() => handleUpdateCode(evt.id)}
                               className="bg-green-600 hover:bg-green-500 text-xs px-2 py-1 rounded font-bold"
                             >
                               Guardar
                             </button>
                             <button
+                              type="button"
                               onClick={() => setEditingId(null)}
                               className="bg-neutral-700 hover:bg-neutral-600 text-xs px-2 py-1 rounded"
                             >
@@ -281,9 +308,51 @@ export default function AdminPage() {
                           </span>
                         )}
                       </td>
-                      <td className="p-3 text-right space-x-2">
+                      <td className="p-3">
+                        {editingBannerId === evt.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) =>
+                                setBannerFile(e.target.files ? e.target.files[0] : null)
+                              }
+                              className="bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-xs text-neutral-300 w-48 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-neutral-700 file:text-white"
+                            />
+                            <button
+                              type="button"
+                              disabled={uploadingBanner}
+                              onClick={() => handleUpdateBanner(evt.id)}
+                              className="bg-green-600 hover:bg-green-500 text-xs px-2 py-1 rounded font-bold disabled:opacity-50"
+                            >
+                              {uploadingBanner ? 'Subiendo...' : 'Subir'}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={uploadingBanner}
+                              onClick={() => {
+                                setEditingBannerId(null);
+                                setBannerFile(null);
+                              }}
+                              className="bg-neutral-700 hover:bg-neutral-600 text-xs px-2 py-1 rounded disabled:opacity-50"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : evt.bannerImageUrl ? (
+                          <img
+                            src={`${getImageUrl(evt.bannerImageUrl)}?v=${bannerVersion}`}
+                            alt={evt.title}
+                            className="h-10 w-24 object-cover rounded border border-neutral-700"
+                          />
+                        ) : (
+                          <span className="text-xs text-neutral-500">Sin banner</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-right space-x-2 whitespace-nowrap">
                         {editingId !== evt.id && (
                           <button
+                            type="button"
                             onClick={() => {
                               setEditingId(evt.id);
                               setNewCodeInput(evt.accessCode);
@@ -293,7 +362,20 @@ export default function AdminPage() {
                             Cambiar Código
                           </button>
                         )}
+                        {editingBannerId !== evt.id && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingBannerId(evt.id);
+                              setBannerFile(null);
+                            }}
+                            className="text-sm bg-neutral-800 hover:bg-neutral-700 text-neutral-200 px-3 py-1 rounded border border-neutral-700"
+                          >
+                            Cambiar Imagen
+                          </button>
+                        )}
                         <button
+                          type="button"
                           onClick={() => handleDelete(evt.id)}
                           className="text-sm bg-red-950/80 hover:bg-red-900 text-red-300 px-3 py-1 rounded border border-red-800/50"
                         >

@@ -9,9 +9,9 @@ function NavLinks() {
   const pathname = usePathname();
 
   const navItems = [
-    { name: 'Presentación', path: '/' },
+    { name: 'Sobre mí', path: '/' },
     { name: 'Eventos', path: '/events' },
-    { name: 'Cortometrajes', path: '/films' },
+    { name: 'Videos', path: '/films' },
   ];
 
   return (
@@ -41,7 +41,7 @@ export default function Navbar() {
     <header className="bg-neutral-900 text-white sticky top-0 z-50 shadow-lg">
       <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
         <Link href="/" className="text-xl font-bold tracking-wider hover:text-neutral-300 transition">
-          STUDIO FOTOGRAFÍA
+          True Bermudez Photographer
         </Link>
         {/* Suspense boundary fixes the prerender client hook error */}
         <Suspense fallback={<div className="text-neutral-500 text-sm">Cargando...</div>}>
