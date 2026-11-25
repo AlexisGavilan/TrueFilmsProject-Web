@@ -4,6 +4,7 @@ const API_BASE_URL = `${BACKEND_ORIGIN}/api`;
 
 // --- Tipos de Datos (DTOs de Spring Boot) ---
 export type MediaType = 'IMAGE' | 'VIDEO';
+export type AboutMeImageSlot = 'hero' | 'gallery-1' | 'gallery-2' | 'gallery-3' | 'gallery-4';
 
 export interface PortfolioItem {
   id: number;
@@ -68,6 +69,24 @@ export interface DiskSpace {
   usableSpaceBytes: number;
   usedSpaceBytes: number;
   usagePercentage: number;
+}
+
+
+export interface AboutMeData {
+  id?: number;
+  heroImageUrl: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  galleryImages: string[];
+}
+
+export interface UpdateAboutMePayload {
+  heroImageUrl?: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  galleryImages: string[];
 }
 
 // --- Peticiones HTTP ---
@@ -242,6 +261,44 @@ export async function uploadEventBannerFile(
 
   if (!res.ok) {
     throw new Error('Error al subir la imagen del banner');
+  }
+
+  return res.json();
+}
+
+// Sprint 6: Obtener la configuración pública de "Sobre mí"
+export async function getAboutMe(): Promise<AboutMeData> {
+  const res = await fetch(`${API_BASE_URL}/about-me`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Error al cargar la información de Sobre mí');
+  return res.json();
+}
+
+// Sprint 6 (Admin): Actualizar textos y/o URLs de "Sobre mí"
+export async function updateAboutMe(payload: UpdateAboutMePayload): Promise<AboutMeData> {
+  const res = await fetch(`${API_BASE_URL}/admin/about-me`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Error al actualizar la información de Sobre mí');
+  return res.json();
+}
+
+// Sprint 6 (Admin): Subir imagen para uno de los 5 slots (hero, gallery-1..4)
+export async function uploadAboutMeImage(
+  slot: AboutMeImageSlot,
+  file: File
+): Promise<AboutMeData> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_BASE_URL}/admin/about-me/images/${slot}`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Error al subir la imagen del slot ${slot}`);
   }
 
   return res.json();
